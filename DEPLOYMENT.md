@@ -7,7 +7,7 @@
 - **Resource Requirements (资源要求)**: 
   - **Hardware (硬件)**: NVIDIA GPU (16GB+ VRAM recommended for 0.5B model). / NVIDIA GPU（建议 16GB 以上显存以支持 0.5B 模型）。
   - **Storage (存储)**: Initial image size ~15GB (includes baked-in models). / 初始镜像约 15GB（包含内置模型权重）。
-- **Port (端口)**: `8000` (HTTP).
+- **Port (端口)**: `8080` (HTTP).
 - **Offline Mode (离线模式)**: 100% Air-gapped compatible. No external internet access required during runtime. / 100% 物理隔离兼容，运行时无需任何外部网络连接。
 
 ---
@@ -26,7 +26,7 @@ docker run -d \
   --name tts-service \
   --restart always \
   --gpus all \
-  -p 8000:8000 \
+  -p 8080:8080 \
   -e ENVIRONMENT=prod \
   -e CUDA_VISIBLE_DEVICES=0 \
   -e MODELSCOPE_OFFLINE=1 \
@@ -47,20 +47,20 @@ docker logs tts-service | grep "loaded on cuda"
 
 ### 3.2 Health Check / 健康检查
 ```bash
-curl http://localhost:8000/api/health
+curl http://localhost:8080/api/health
 # Expected response: {"status": "healthy", "engines": ["cosyvoice", "mms"]}
 ```
 
 ### 3.3 Streaming Functional Test / 流式功能测试
 Access the built-in test page via browser. / 通过浏览器访问内置测试页面。
-- **URL**: `http://<SERVER_IP>:8000/static/test_stream.html`
+- **URL**: `http://<SERVER_IP>:8080/static/test_stream.html`
 
 ---
 
 ## 4. Domain & Network / 域名配置
 
 - **Suggested Domain (建议域名)**: `tts-service-bn.evyd.io`
-- **Backend Service (后端服务)**: `<GPU_MACHINE_IP>:8000`
+- **Backend Service (后端服务)**: `<GPU_MACHINE_IP>:8080`
 - **Path Forwarding (路径转发)**: `/`
 - **Note**: Ensure Nginx/Ingress supports long-lived HTTP connections for streaming responses. / 确保 Nginx/Ingress 支持长连接以维持流式响应。
 

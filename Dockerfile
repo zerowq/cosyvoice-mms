@@ -41,7 +41,7 @@ RUN unset MODELSCOPE_OFFLINE && \
     python3 scripts/create_dummy_voice.py
 
 # 暴露端口
-EXPOSE 8000
+EXPOSE 8080
 
 # 启动脚本
 CMD ["python3", "-m", "src.main"]
