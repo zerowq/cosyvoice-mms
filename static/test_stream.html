@@ -144,7 +144,8 @@
             let leftover = new Uint8Array(0);
 
             try {
-                const response = await fetch('/api/tts/stream', {
+                // 使用相对路径 ../api/ 以便支持部署在子路径 (如 /cosyvoice/static/...)
+                const response = await fetch('../api/tts/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
