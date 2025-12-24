@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# UV / Virtualenv
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+logs/
+output/
+tts_cache/
+static/audio/*.wav
+
+# Models (用户要求提交到 CI，故此处不忽略 models/ 目录下的核心模型文件)
+# 如果模型文件夹过大，建议只保留核心结构
+!models/
+
+# Git metadata in sub-folders (vendor/submodules)
+**/CosyVoice/.git
+**/CosyVoice/.gitignore
+**/CosyVoice/.gitmodules
+**/CosyVoice/.github
+**/CosyVoice/third_party/**/.git

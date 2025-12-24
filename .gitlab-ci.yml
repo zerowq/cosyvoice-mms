@@ -1,0 +1,14 @@
+stages:
+  - build
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - chmod +x ci/build.sh
+    - ./ci/build.sh
+  only:
+    - main
+    - master

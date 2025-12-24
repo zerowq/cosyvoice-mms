@@ -1,0 +1,17 @@
+# 核心依赖
+fastapi==0.109.2
+uvicorn==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+transformers==4.36.2
+torch==2.1.2
+torchaudio==2.1.2
+modelscope>=1.10.0
+gunicorn==21.2.0
+
+# 工具依赖
+loguru==0.5.3
+python-dotenv==1.0.1
+scipy>=1.11.0
+numpy==1.24.3
+pynini==2.1.5

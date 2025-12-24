@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TTS Streaming Demo</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 400px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: white;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+            resize: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .visualizer {
+            height: 4px;
+            width: 0;
+            background: var(--primary);
+            margin-top: 1rem;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>TTS Stream Pro</h1>
+        <div style="margin-bottom: 1rem; text-align: left;">
+            <label style="font-size: 0.875rem; color: #94a3b8;">选择语言/引擎：</label>
+            <select id="lang"
+                style="width: 100%; padding: 0.6rem; border-radius: 0.5rem; background: #0f172a; color: white; border: 1px solid #334155; margin-top: 0.25rem;">
+                <option value="en">英语 (CosyVoice 2.0)</option>
+                <option value="ms">马来语 (Meta MMS)</option>
+            </select>
+        </div>
+        <textarea id="text">Hello! This is a real-time streaming test on Apple Silicon MPS.</textarea>
+        <button id="playBtn">开始流式播报</button>
+        <div id="visualizer" class="visualizer"></div>
+        <div id="status" class="status">准备就绪</div>
+    </div>
+
+    <script>
+        let audioCtx;
+        let nextStartTime = 0;
+
+        // 根据语言更新默认文本
+        document.getElementById('lang').onchange = (e) => {
+            const text = document.getElementById('text');
+            if (e.target.value === 'ms') {
+                text.value = "Selamat datang ke perkhidmatan simulasi suara kami.";
+            } else {
+                text.value = "Hello! This is a real-time streaming test on Apple Silicon MPS.";
+            }
+        };
+
+        async function playStream() {
+            const btn = document.getElementById('playBtn');
+            const status = document.getElementById('status');
+            const visualizer = document.getElementById('visualizer');
+            const lang = document.getElementById('lang').value;
+
+            // 关键：根据引擎切换采样率
+            const sampleRate = lang === 'ms' ? 16000 : 22050;
+
+            if (!audioCtx || audioCtx.sampleRate !== sampleRate) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
+            }
+
+            btn.disabled = true;
+            status.innerText = "正在接收音频流...";
+            nextStartTime = audioCtx.currentTime;
+
+            let leftover = new Uint8Array(0);
+
+            try {
+                const response = await fetch('/api/tts/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: document.getElementById('text').value,
+                        language: lang,
+                        voice: lang === 'en' ? '英文女' : 'default'
+                    })
+                });
+
+                const reader = response.body.getReader();
+                visualizer.style.width = "100%";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    let combined = new Uint8Array(leftover.length + value.length);
+                    combined.set(leftover);
+                    combined.set(value, leftover.length);
+
+                    const numSamples = Math.floor(combined.length / 4);
+                    const validBytes = numSamples * 4;
+
+                    if (numSamples > 0) {
+                        const audioData = combined.slice(0, validBytes);
+                        leftover = combined.slice(validBytes);
+
+                        const float32Array = new Float32Array(audioData.buffer);
+                        const buffer = audioCtx.createBuffer(1, float32Array.length, sampleRate);
+                        buffer.getChannelData(0).set(float32Array);
+
+                        const source = audioCtx.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(audioCtx.destination);
+
+                        const startPos = Math.max(nextStartTime, audioCtx.currentTime);
+                        source.start(startPos);
+                        nextStartTime = startPos + buffer.duration;
+                    } else {
+                        leftover = combined;
+                    }
+                }
+                status.innerText = "播放完毕";
+            } catch (e) {
+                status.innerText = "错误: " + e.message;
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => visualizer.style.width = "0", 1000);
+            }
+        }
+
+        document.getElementById('playBtn').onclick = () => {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            playStream();
+        };
+    </script>
+</body>
+
+</html>
