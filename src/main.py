@@ -47,9 +47,10 @@ class TTSResponse(BaseModel):
 async def root():
     return {"service": "TTS Service", "status": "running"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    service = get_service()
+    return service.get_health()
 
 @app.post("/api/tts", response_model=TTSResponse)
 async def synthesize(request: TTSRequest):
@@ -90,6 +91,12 @@ async def synthesize_stream(request: TTSRequest):
         return StreamingResponse(gen, media_type="audio/pcm")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/metrics")
+async def metrics():
+    """获取服务性能指标 (目前仅包含延迟)"""
+    service = get_service()
+    return service.get_metrics()
 
 if __name__ == "__main__":
     import uvicorn
