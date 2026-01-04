@@ -51,6 +51,7 @@ dependencies = [
     "pyarrow>=18.1.0",
     "networkx>=3.1",
     "matplotlib>=3.7.5",
+    "kokoro-onnx>=0.2.0",
 ]
 
 [dependency-groups]

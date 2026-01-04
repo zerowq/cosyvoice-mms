@@ -107,45 +107,40 @@ class CosyVoiceEngine:
 
     def synthesize_stream(self, text: str, voice: str = "英文女") -> Generator[bytes, None, None]:
         """
-        流式合成音频块
-        支持预设音色或通过本地 wav 文件进行 zero-shot 克隆
+        流式合成音频块逻辑内容 (日志已由上层统一处理)
         """
-        model = self.model
-        spk_list = model.list_available_spks()
-        
-        # 1. 预处理：去除前后空格及中间空格
-        clean_voice = voice.strip().replace(" ", "").lower()
-        
-        # 2. 如果是预设音色，直接使用 SFT 推理
-        if voice in spk_list:
-            iterable = model.inference_sft(text, voice, stream=True)
+        try:
+            model = self.model
+            spk_list = model.list_available_spks()
+            clean_voice = voice.strip().replace(" ", "").lower()
             
-        # 3. 如果不是预设，但在 static/voices 下有同名 wav 文件，则进行 Zero-Shot 推理
-        else:
-            voice_dir = os.path.join(ROOT_DIR, "static", "voices")
-            ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
-            
-            # 容错匹配：如果直接找找不到，遍历目录进行松散匹配 (忽略空格和大小写)
-            if not os.path.exists(ref_audio_path) and os.path.exists(voice_dir):
-                for f in os.listdir(voice_dir):
-                    if f.lower().endswith(".wav"):
-                        f_name = f.rsplit('.', 1)[0]
-                        if f_name.replace(" ", "").lower() == clean_voice:
-                            ref_audio_path = os.path.join(voice_dir, f)
-                            break
-
-            if os.path.exists(ref_audio_path):
-                print(f"🎤 Using local reference audio: {ref_audio_path}")
-                # 直接传递路径字符串
-                iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
+            # 推理逻辑选择
+            if voice in spk_list:
+                iterable = model.inference_sft(text, voice, stream=True)
             else:
-                 # 最后的兜底：如果连文件都没有，尝试用第一个预设（如果有）或报错
-                if spk_list:
-                    print(f"⚠️ Voice '{voice}' not found, fallback to '{spk_list[0]}'")
-                    iterable = model.inference_sft(text, spk_list[0], stream=True)
-                else:
-                    raise ValueError(f"Voice '{voice}' not found and no reference audio at static/voices/{voice}.wav")
+                voice_dir = os.path.join(ROOT_DIR, "static", "voices")
+                ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
+                
+                if not os.path.exists(ref_audio_path) and os.path.exists(voice_dir):
+                    for f in os.listdir(voice_dir):
+                        if f.lower().endswith(".wav"):
+                            f_name = f.rsplit('.', 1)[0]
+                            if f_name.replace(" ", "").lower() == clean_voice:
+                                ref_audio_path = os.path.join(voice_dir, f)
+                                break
 
-        for result in iterable:
-            audio_tensor = result['tts_speech']
-            yield audio_tensor.cpu().numpy().tobytes()
+                if os.path.exists(ref_audio_path):
+                    print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
+                    iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
+                else:
+                    print(f"⚠️ [CosyVoice] Voice '{voice}' not found, falling back to English default")
+                    iterable = model.inference_sft(text, "英文女", stream=True)
+
+            # 流式迭代
+            for chunk in iterable:
+                speech = chunk['tts_speech'].numpy().flatten()
+                yield speech.tobytes()
+
+        except Exception as e:
+            print(f"❌ [CosyVoice] Streaming error: {e}")
+            raise

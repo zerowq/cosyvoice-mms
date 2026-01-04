@@ -101,7 +101,9 @@
             <select id="lang"
                 style="width: 100%; padding: 0.6rem; border-radius: 0.5rem; background: #0f172a; color: white; border: 1px solid #334155; margin-top: 0.25rem;">
                 <option value="en">英语 (CosyVoice 2.0)</option>
+                <option value="kokoro">英语 (Kokoro-82M) ⚡轻量</option>
                 <option value="ms">马来语 (Meta MMS)</option>
+                <option value="kokoro_ms">马来语 (Kokoro-82M) 🧪实验</option>
             </select>
         </div>
         <textarea id="text">Hello! This is a real-time streaming test on Apple Silicon MPS.</textarea>
@@ -117,7 +119,7 @@
         // 根据语言更新默认文本
         document.getElementById('lang').onchange = (e) => {
             const text = document.getElementById('text');
-            if (e.target.value === 'ms') {
+            if (e.target.value === 'ms' || e.target.value === 'kokoro_ms') {
                 text.value = "Selamat datang ke perkhidmatan simulasi suara kami.";
             } else {
                 text.value = "Hello! This is a real-time streaming test on Apple Silicon MPS.";
@@ -131,7 +133,10 @@
             const lang = document.getElementById('lang').value;
 
             // 关键：根据引擎切换采样率
-            const sampleRate = lang === 'ms' ? 16000 : 22050;
+            // CosyVoice: 22050Hz, Kokoro: 24000Hz, MMS: 16000Hz
+            let sampleRate = 22050;
+            if (lang === 'ms') sampleRate = 16000;
+            else if (lang.startsWith('kokoro')) sampleRate = 24000;
 
             if (!audioCtx || audioCtx.sampleRate !== sampleRate) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
@@ -145,13 +150,18 @@
 
             try {
                 // 使用相对路径 ../api/ 以便支持部署在子路径 (如 /cosyvoice/static/...)
+                // 根据引擎选择默认音色
+                let voiceName = '英文女'; // 默认 CosyVoice
+                if (lang === 'ms') voiceName = 'default';
+                else if (lang.startsWith('kokoro')) voiceName = 'af_sarah';
+
                 const response = await fetch('../api/tts/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         text: document.getElementById('text').value,
                         language: lang,
-                        voice: lang === 'en' ? '英文女' : 'default'
+                        voice: voiceName
                     })
                 });
 

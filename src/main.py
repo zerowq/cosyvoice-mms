@@ -34,7 +34,7 @@ app.mount("/static", StaticFiles(directory=config.static_dir), name="static")
 
 class TTSRequest(BaseModel):
     text: str
-    language: Literal["en", "ms"] = "en"
+    language: Literal["en", "ms", "kokoro", "kokoro_ms"] = "en"
     voice: Optional[str] = None
 
 class TTSResponse(BaseModel):

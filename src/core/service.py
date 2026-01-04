@@ -13,6 +13,7 @@ import statistics
 from ..config import config as global_config
 from ..engines.cosyvoice_engine import CosyVoiceEngine
 from ..engines.mms_engine import MMSEngine
+from ..engines.kokoro_engine import KokoroEngine
 
 from typing import Literal, Optional, Dict
 
@@ -23,6 +24,7 @@ class UnifiedTTSService:
         self.config = config or global_config
         self._cosyvoice = None
         self._mms = None
+        self._kokoro = None
         self.latencies = {
             'synthesize_s': collections.deque(maxlen=100),
             'stream_ttfb_s': collections.deque(maxlen=100)
@@ -45,6 +47,16 @@ class UnifiedTTSService:
                 device="cpu"
             )
         return self._mms
+    
+    @property
+    def kokoro(self):
+        if self._kokoro is None:
+            from pathlib import Path
+            root_dir = Path(__file__).parent.parent.parent.absolute()
+            model_path = str(root_dir / "models" / "kokoro" / "kokoro-v1.0.onnx")
+            voices_path = str(root_dir / "models" / "kokoro" / "voices.json")
+            self._kokoro = KokoroEngine(model_path, voices_path)
+        return self._kokoro
     
     def get_health(self) -> Dict:
         """检查并返回所有引擎的健康状况"""
@@ -126,28 +138,69 @@ class UnifiedTTSService:
         self.latencies['synthesize_s'].append(time.time() - start_time)
         return res
 
-    def stream_synthesize(self, text: str, language: Literal["en", "ms"], voice: Optional[str] = None):
-        """流式合成主入口"""
+    def stream_synthesize(self, text: str, language: Literal["en", "ms", "kokoro", "kokoro_ms"], voice: Optional[str] = None):
+        """流式合成主入口，带全引擎性能监控"""
+        import time
         start_time = time.time()
-        first_chunk = True
-
-        if voice is None:
-            voice = self.config.default_english_voice if language == "en" else self.config.default_malay_voice
+        first_chunk_time = None
+        total_audio_len = 0
         
-        if language == "en":
-            # CosyVoice 原生支持流式
-            for chunk in self.cosyvoice.synthesize_stream(text, voice):
-                if first_chunk:
-                    self.latencies['stream_ttfb_s'].append(time.time() - start_time)
-                    first_chunk = False
-                yield chunk
-        elif language == "ms":
-            # MMS 暂不支持流式，我们一次性生成并模拟流式返回以保持 API 兼容
-            audio = self.mms.synthesize(text, language="ms")
-            self.latencies['stream_ttfb_s'].append(time.time() - start_time) # 记录一次性生成的时间作为TTFB
-            yield audio.tobytes()
-        else:
-            raise ValueError(f"Unsupported language: {language}")
+        if voice is None or voice == "default":
+            if language in ["kokoro", "kokoro_ms"]:
+                voice = "af_sarah"
+            elif language == "en":
+                voice = self.config.default_english_voice
+            else:
+                voice = "default" # MMS 保持 default
+
+        print(f"🚀 [TTS] Request {language.upper()} started: '{text[:30]}...' [Voice: {voice}]")
+
+        try:
+            if language == "en":
+                # CosyVoice 原生支持流式
+                for chunk_bytes in self.cosyvoice.synthesize_stream(text, voice):
+                    if first_chunk_time is None:
+                        first_chunk_time = time.time()
+                    
+                    # CosyVoice 返回的是 float32, 22050Hz
+                    # 注意：synthesize_stream 内部现在返回的是 .tobytes()
+                    chunk_duration = (len(chunk_bytes) / 4) / 22050
+                    total_audio_len += chunk_duration
+                    yield chunk_bytes
+            
+            elif language in ["kokoro", "kokoro_ms"]:
+                # Kokoro-82M 轻量化 TTS
+                # 如果是 kokoro_ms，逻辑上依然使用 en-us 规则
+                for chunk_bytes in self.kokoro.synthesize_stream(text, voice=voice, lang="en-us"):
+                    if first_chunk_time is None:
+                        first_chunk_time = time.time()
+                    
+                    # Kokoro 现在返回的是 float32 (每个采样 4 字节), 24000Hz
+                    chunk_duration = (len(chunk_bytes) / 4) / 24000
+                    total_audio_len += chunk_duration
+                    yield chunk_bytes
+            
+            elif language == "ms":
+                # MMS 一次性生成
+                audio = self.mms.synthesize(text, language="ms")
+                first_chunk_time = time.time()
+                
+                # MMS 采样率是 16000
+                total_audio_len = len(audio) / 16000
+                yield audio.tobytes()
+            
+            # 打印汇总报表
+            end_time = time.time()
+            total_duration = end_time - start_time
+            ttfb = (first_chunk_time - start_time) if first_chunk_time else 0
+            final_rtf = total_duration / total_audio_len if total_audio_len > 0 else 0
+            
+            print(f"✅ [TTS] {language.upper()} Request complete!")
+            print(f"📊 Summary ({language.upper()}): TTFB: {ttfb:.2f}s | Total: {total_duration:.2f}s | Audio: {total_audio_len:.2f}s | Final RTF: {final_rtf:.2f}")
+
+        except Exception as e:
+            print(f"❌ [TTS] {language.upper()} Error: {e}")
+            raise
 
 _service = None
 def get_service():
