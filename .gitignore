@@ -38,9 +38,8 @@ output/
 tts_cache/
 static/audio/*.wav
 
-# Models (用户要求提交到 CI，故此处不忽略 models/ 目录下的核心模型文件)
-# 如果模型文件夹过大，建议只保留核心结构
-!models/
+# Models (自动下载，不提交到git)
+models/
 
 # Git metadata in sub-folders (vendor/submodules)
 **/CosyVoice/.git

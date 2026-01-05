@@ -4,6 +4,8 @@ TTS Service FastAPI 主程序
 import uvicorn
 import uuid
 import os
+import sys
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +15,36 @@ from typing import Literal, Optional
 
 from src.config import config
 from src.core.service import get_service
+
+# 启动时检查并下载模型
+def ensure_models_ready():
+    """启动时检查模型，如果缺失则自动下载"""
+    try:
+        from scripts.download_models import check_models_exist, main as download_main
+
+        all_exist, missing = check_models_exist()
+
+        if all_exist:
+            print("✅ All models are ready!")
+            return True
+
+        print(f"⚠️  Missing models detected: {', '.join(missing)}")
+        print("📥 Starting automatic model download...")
+
+        success = download_main(auto_download=True)
+
+        if success:
+            print("✅ Models downloaded successfully!")
+            return True
+        else:
+            print("❌ Failed to download models")
+            print("Please run: python scripts/download_models.py")
+            return False
+
+    except Exception as e:
+        print(f"⚠️  Warning: Could not check models: {e}")
+        print("Please ensure models are in the 'models/' directory")
+        return False
 
 app = FastAPI(
     title="TTS Service API",
@@ -100,5 +132,13 @@ async def metrics():
 
 if __name__ == "__main__":
     import uvicorn
+
+    # 启动前检查模型
+    print("=" * 60)
+    print("TTS Service Startup")
+    print("=" * 60)
+    ensure_models_ready()
+    print("=" * 60)
+
     # 修改默认端口为 8080
     uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -16,6 +16,21 @@ def setup_mirror():
     os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
     print("🌐 Using Hugging Face mirror: https://hf-mirror.com")
 
+def check_models_exist():
+    """检查所有必需的模型是否已存在"""
+    required_models = [
+        MODELS_DIR / "CosyVoice2-0.5B",
+        MODELS_DIR / "mms-tts-eng",
+        MODELS_DIR / "mms-tts-zlm"
+    ]
+
+    missing_models = []
+    for model_path in required_models:
+        if not model_path.exists() or len(list(model_path.glob("*"))) == 0:
+            missing_models.append(model_path.name)
+
+    return len(missing_models) == 0, missing_models
+
 def download_cosyvoice():
     """下载 CosyVoice 2.0 模型 (从 ModelScope 下载，国内速度快)"""
     print("\n📥 [1/2] Downloading CosyVoice 2.0...")
@@ -77,9 +92,39 @@ def download_wetext():
     except Exception as e:
         print(f"❌ Error downloading WeText: {e}")
 
-if __name__ == "__main__":
+def main(auto_download=False):
+    """
+    主函数
+
+    Args:
+        auto_download: 是否自动下载缺失的模型
+    """
     os.makedirs(MODELS_DIR, exist_ok=True)
+
+    all_exist, missing = check_models_exist()
+
+    if all_exist:
+        print("✅ All models are ready!")
+        return True
+
+    if not auto_download:
+        print(f"⚠️  Missing models: {', '.join(missing)}")
+        print("Run 'python scripts/download_models.py' to download them")
+        return False
+
+    print(f"📥 Downloading missing models: {', '.join(missing)}")
     download_cosyvoice()
     download_mms()
     download_wetext()
     print("\n🎉 Model preparation finished.")
+    return True
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Download TTS models")
+    parser.add_argument("--auto", action="store_true", help="Auto download missing models")
+    args = parser.parse_args()
+
+    success = main(auto_download=True)
+    sys.exit(0 if success else 1)
