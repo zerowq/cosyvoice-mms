@@ -59,7 +59,7 @@ Access the built-in test page via browser. / 通过浏览器访问内置测试�
 
 ## 4. Domain & Network / 域名配置
 
-- **Suggested Domain (建议域名)**: `tts-service-bn.evyd.io`
+- **Suggested Domain (建议域名)**: `tts-service.yourdomain.com`
 - **Backend Service (后端服务)**: `<GPU_MACHINE_IP>:8080`
 - **Path Forwarding (路径转发)**: `/`
 - **Note**: Ensure Nginx/Ingress supports long-lived HTTP connections for streaming responses. / 确保 Nginx/Ingress 支持长连接以维持流式响应。
