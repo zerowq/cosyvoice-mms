@@ -67,29 +67,16 @@ class CosyVoiceEngine:
             
             model = self.model
             spk_list = model.list_available_spks()
-            
-            if voice in spk_list:
-                iterable = model.inference_sft(text, voice, stream=stream)
-            else:
-                # 容错：去除前后空格
-                clean_voice = voice.strip().replace(" ", "").lower()
-                ref_audio_path = os.path.join(ROOT_DIR, "static", "voices", f"{voice.strip()}.wav")
-                
-                if not os.path.exists(ref_audio_path):
-                    alt_path = os.path.join(ROOT_DIR, "static", "voices", f"{clean_voice}.wav")
-                    if os.path.exists(alt_path):
-                        ref_audio_path = alt_path
 
-                if os.path.exists(ref_audio_path):
-                    print(f"🎤 Using local reference audio: {ref_audio_path}")
-                    # 直接传递路径字符串，CosyVoice 内部会处理加载
-                    iterable = model.inference_cross_lingual(text, ref_audio_path, stream=stream)
-                else:
-                    if spk_list:
-                        print(f"⚠️ Voice '{voice}' not found, fallback to '{spk_list[0]}'")
-                        iterable = model.inference_sft(text, spk_list[0], stream=stream)
-                    else:
-                        raise ValueError(f"Voice '{voice}' not found and no reference audio at static/voices/{voice}.wav")
+            if spk_list and voice in spk_list:
+                iterable = model.inference_sft(text, voice, stream=stream)
+            elif spk_list:
+                print(f"⚠️ Voice '{voice}' not found, using preset voice: {spk_list[0]}")
+                iterable = model.inference_sft(text, spk_list[0], stream=stream)
+            else:
+                # 没有预设音色，直接使用 inference_sft（CosyVoice 会使用默认音色）
+                print(f"⚠️ No preset voices available, using default voice via inference_sft")
+                iterable = model.inference_sft(text, voice, stream=stream)
 
             for result in iterable:
                 audio_chunks.append(result['tts_speech'])
@@ -123,26 +110,9 @@ class CosyVoiceEngine:
                 print(f"⚠️ [CosyVoice] Voice '{voice}' not found, using preset voice: {default_voice}")
                 iterable = model.inference_sft(text, default_voice, stream=True)
             else:
-                # 没有预设音色，使用零样本克隆（需要参考音频）
-                print(f"⚠️ [CosyVoice] No preset voices available, using zero-shot mode")
-                voice_dir = os.path.join(ROOT_DIR, "static", "voices")
-                ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
-
-                if not os.path.exists(ref_audio_path):
-                    # 尝试查找任何可用的参考音频
-                    if os.path.exists(voice_dir):
-                        wav_files = [f for f in os.listdir(voice_dir) if f.endswith('.wav')]
-                        if wav_files:
-                            ref_audio_path = os.path.join(voice_dir, wav_files[0])
-                            print(f"🎤 [CosyVoice] Using reference audio: {wav_files[0]}")
-                        else:
-                            raise ValueError("No preset voices or reference audio files available")
-                    else:
-                        raise ValueError("No preset voices available and voices directory not found")
-                else:
-                    print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
-
-                iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
+                # 没有预设音色，直接使用 inference_sft（CosyVoice 会使用默认音色）
+                print(f"⚠️ [CosyVoice] No preset voices available, using default voice via inference_sft")
+                iterable = model.inference_sft(text, voice, stream=True)
 
             # 流式迭代
             for chunk in iterable:
