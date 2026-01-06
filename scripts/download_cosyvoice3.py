@@ -67,17 +67,26 @@ def download_with_aria2c():
         # 确保子目录存在
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        if output_file.exists():
-            print(f"⏩ Skipping {file} (already exists)")
+        # 检查文件是否已完整下载（通过 .aria2 控制文件判断）
+        aria2_control = output_file.parent / f"{output_file.name}.aria2"
+        if output_file.exists() and not aria2_control.exists():
+            print(f"⏩ Skipping {file} (already downloaded)")
             continue
 
-        print(f"📥 Downloading {file}...")
+        if aria2_control.exists():
+            print(f"🔄 Resuming {file} (found incomplete download)...")
+        else:
+            print(f"📥 Downloading {file}...")
+
         cmd = [
             'aria2c',
+            '-c',                # 启用断点续传
             '-x', '16',          # 16 connections
             '-s', '16',          # 16 splits
             '-k', '1M',          # chunk size
             '--file-allocation=none',
+            '--auto-file-renaming=false',  # 不自动重命名
+            '--allow-overwrite=true',      # 允许覆盖
             '-d', str(output_file.parent),
             '-o', output_file.name,
             file_url
@@ -88,6 +97,7 @@ def download_with_aria2c():
             print(f"✅ Downloaded {file}")
         except subprocess.CalledProcessError as e:
             print(f"❌ Failed to download {file}: {e}")
+            print(f"💡 You can re-run this command to resume the download")
             return False
 
     print(f"\n✅ All files downloaded to {target_path}")
