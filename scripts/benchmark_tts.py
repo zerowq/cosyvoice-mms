@@ -105,23 +105,29 @@ def benchmark_kokoro():
     return results
 
 def benchmark_cosyvoice():
-    """测试 CosyVoice 2.0"""
+    """测试 CosyVoice（自动检测版本）"""
     try:
         from src.engines.cosyvoice_engine import CosyVoiceEngine
     except ImportError:
         logger.warning("⚠️ CosyVoiceEngine 未找到，跳过测试")
         return None
 
-    # CosyVoice 模型路径 (检查多个可能位置)
+    # CosyVoice 模型路径（优先 3.0，回退到 2.0）
     possible_paths = [
+        ROOT_DIR / "models" / "Fun-CosyVoice3-0.5B",
         ROOT_DIR / "models" / "CosyVoice2-0.5B",
         ROOT_DIR / "CosyVoice" / "pretrained_models" / "CosyVoice2-0.5B",
     ]
 
     model_path = None
+    model_version = None
     for p in possible_paths:
         if p.exists():
             model_path = str(p)
+            if "Fun-CosyVoice3" in str(p):
+                model_version = "Fun-CosyVoice-3.0"
+            else:
+                model_version = "CosyVoice-2.0"
             break
 
     if model_path is None:
@@ -129,7 +135,7 @@ def benchmark_cosyvoice():
         return None
 
     results = {
-        "model": "CosyVoice-2.0",
+        "model": model_version,
         "load_time": 0,
         "warmup_time": 0,
         "synthesis_times": [],
@@ -141,7 +147,7 @@ def benchmark_cosyvoice():
 
     try:
         # 加载模型（单独计时）
-        logger.info("📥 [CosyVoice] 加载模型...")
+        logger.info(f"📥 [CosyVoice] 加载模型 {model_version}...")
         start = time.time()
         engine = CosyVoiceEngine(model_path)
         engine._load_model()
@@ -153,7 +159,7 @@ def benchmark_cosyvoice():
             results["gpu_memory_mb"] = mem_after - mem_before
 
         # 预热（不计入测试时间）
-        logger.info("🔥 [CosyVoice] 预热模型...")
+        logger.info(f"🔥 [CosyVoice] 预热模型...")
         start = time.time()
         engine.synthesize("Warmup test.", voice="英文女")
         results["warmup_time"] = time.time() - start
