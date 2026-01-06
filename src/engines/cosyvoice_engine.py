@@ -40,7 +40,6 @@ class CosyVoiceEngine:
                     print(f"🔄 Loading CosyVoice 3.0 on {self.device} (fp16={use_fp16})...")
                     self._model = CosyVoice3(
                         self.model_path,
-                        load_jit=True,
                         load_trt=False,
                         fp16=use_fp16
                     )
