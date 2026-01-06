@@ -1,13 +1,11 @@
 """
 CosyVoice TTS 引擎封装（支持 v2.0 和 v3.0）
+与官方 CosyVoice 652132e 版本保持一致
 """
 import os
 import sys
 import torch
 import torchaudio
-import tempfile
-import librosa
-import numpy as np
 from pathlib import Path
 from typing import Optional, Generator
 
@@ -20,43 +18,6 @@ if str(COSYVOICE_PATH) not in sys.path:
     sys.path.insert(0, str(COSYVOICE_PATH))
     sys.path.insert(0, str(COSYVOICE_PATH / "third_party" / "Matcha-TTS"))
 
-
-def preprocess_prompt_audio(audio_path: str, target_sr: int = 16000, max_val: float = 0.8) -> str:
-    """
-    预处理参考音频（与 Docker 镜像中的 postprocess 逻辑一致）
-    1. 去除静音
-    2. 音量归一化
-    3. 添加尾部静音
-    返回处理后的临时文件路径
-    """
-    # 加载音频
-    speech, sr = torchaudio.load(audio_path)
-    speech = speech.mean(dim=0, keepdim=True)  # 转为单声道
-
-    # 重采样到目标采样率
-    if sr != target_sr:
-        speech = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)(speech)
-
-    # 转为 numpy 进行 librosa 处理
-    speech_np = speech.numpy().flatten()
-
-    # 1. 去除静音 (trim silence)
-    speech_trimmed, _ = librosa.effects.trim(speech_np, top_db=60, frame_length=440, hop_length=220)
-
-    # 2. 音量归一化
-    speech_tensor = torch.from_numpy(speech_trimmed).unsqueeze(0)
-    if speech_tensor.abs().max() > max_val:
-        speech_tensor = speech_tensor / speech_tensor.abs().max() * max_val
-
-    # 3. 添加尾部静音 (0.2秒)
-    tail_silence = torch.zeros(1, int(target_sr * 0.2))
-    speech_tensor = torch.cat([speech_tensor, tail_silence], dim=1)
-
-    # 保存到临时文件
-    temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-    torchaudio.save(temp_file.name, speech_tensor, target_sr)
-
-    return temp_file.name
 
 class CosyVoiceEngine:
     """CosyVoice TTS引擎（自动检测 v2.0 或 v3.0）"""
@@ -101,42 +62,39 @@ class CosyVoiceEngine:
                 print(f"❌ Failed to load CosyVoice: {e}")
                 raise
         return self._model
-    
+
     @property
     def model(self):
         return self._load_model()
-    
+
     @property
     def sample_rate(self) -> int:
         return self.model.sample_rate
-    
+
     def list_voices(self) -> list:
         return self.model.list_available_spks()
-    
+
     def synthesize(self, text: str, voice: str = "英文女", output_path: Optional[str] = None, stream: bool = False) -> torch.Tensor:
+        """
+        合成语音
+        - 如果 voice 是预设音色，使用 inference_sft
+        - 否则使用参考音频进行 inference_cross_lingual
+        """
         audio_chunks = []
-        processed_audio = None
         try:
             model = self.model
             spk_list = model.list_available_spks()
 
             if voice in spk_list:
+                # 使用预设音色
                 iterable = model.inference_sft(text, voice, stream=stream)
             else:
-                # 容错：去除前后空格
-                clean_voice = voice.strip().replace(" ", "").lower()
-                ref_audio_path = os.path.join(ROOT_DIR, "static", "voices", f"{voice.strip()}.wav")
-
-                if not os.path.exists(ref_audio_path):
-                    alt_path = os.path.join(ROOT_DIR, "static", "voices", f"{clean_voice}.wav")
-                    if os.path.exists(alt_path):
-                        ref_audio_path = alt_path
-
-                if os.path.exists(ref_audio_path):
-                    print(f"🎤 Using local reference audio: {ref_audio_path}")
-                    # 预处理参考音频（trim silence, normalize）
-                    processed_audio = preprocess_prompt_audio(ref_audio_path)
-                    iterable = model.inference_cross_lingual(text, processed_audio, stream=stream)
+                # 使用参考音频进行跨语言合成
+                ref_audio_path = self._find_reference_audio(voice)
+                if ref_audio_path:
+                    print(f"🎤 Using reference audio: {ref_audio_path}")
+                    # 直接传递路径，官方代码内部会处理加载和重采样
+                    iterable = model.inference_cross_lingual(text, ref_audio_path, stream=stream)
                 else:
                     if spk_list:
                         print(f"⚠️ Voice '{voice}' not found, fallback to '{spk_list[0]}'")
@@ -146,14 +104,11 @@ class CosyVoiceEngine:
 
             for result in iterable:
                 audio_chunks.append(result['tts_speech'])
+
         except Exception as e:
             import traceback
             traceback.print_exc()
             raise RuntimeError(f"CosyVoice inference failed: {e}")
-        finally:
-            # 清理临时文件
-            if processed_audio and os.path.exists(processed_audio):
-                os.unlink(processed_audio)
 
         audio = torch.cat(audio_chunks, dim=1) if len(audio_chunks) > 1 else audio_chunks[0]
 
@@ -164,9 +119,8 @@ class CosyVoiceEngine:
 
     def synthesize_stream(self, text: str, voice: str = "英文女") -> Generator[bytes, None, None]:
         """
-        流式合成音频块逻辑内容 (日志已由上层统一处理)
+        流式合成音频
         """
-        processed_audio = None
         try:
             model = self.model
             spk_list = model.list_available_spks()
@@ -174,19 +128,17 @@ class CosyVoiceEngine:
             if voice in spk_list:
                 iterable = model.inference_sft(text, voice, stream=True)
             else:
-                voice_dir = os.path.join(ROOT_DIR, "static", "voices")
-                ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
-
-                if os.path.exists(ref_audio_path):
+                ref_audio_path = self._find_reference_audio(voice)
+                if ref_audio_path:
                     print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
-                    # 预处理参考音频（trim silence, normalize）
-                    processed_audio = preprocess_prompt_audio(ref_audio_path)
-                    iterable = model.inference_cross_lingual(text, processed_audio, stream=True)
+                    iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
                 else:
-                    print(f"⚠️ [CosyVoice] Voice '{voice}' not found, falling back to English default")
-                    iterable = model.inference_sft(text, "英文女", stream=True)
+                    print(f"⚠️ [CosyVoice] Voice '{voice}' not found, falling back to first available")
+                    if spk_list:
+                        iterable = model.inference_sft(text, spk_list[0], stream=True)
+                    else:
+                        raise ValueError(f"No voices available")
 
-            # 流式迭代
             for chunk in iterable:
                 speech = chunk['tts_speech'].numpy().flatten()
                 yield speech.tobytes()
@@ -194,7 +146,23 @@ class CosyVoiceEngine:
         except Exception as e:
             print(f"❌ [CosyVoice] Streaming error: {e}")
             raise
-        finally:
-            # 清理临时文件
-            if processed_audio and os.path.exists(processed_audio):
-                os.unlink(processed_audio)
+
+    def _find_reference_audio(self, voice: str) -> Optional[str]:
+        """
+        查找参考音频文件
+        """
+        voice_dir = os.path.join(ROOT_DIR, "static", "voices")
+
+        # 尝试多种文件名格式
+        candidates = [
+            f"{voice.strip()}.wav",
+            f"{voice.strip().replace(' ', '')}.wav",
+            f"{voice.strip().lower()}.wav",
+        ]
+
+        for filename in candidates:
+            path = os.path.join(voice_dir, filename)
+            if os.path.exists(path):
+                return path
+
+        return None
