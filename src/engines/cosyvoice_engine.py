@@ -1,5 +1,5 @@
 """
-CosyVoice 2.0 TTS 引擎封装
+CosyVoice TTS 引擎封装（支持 v2.0 和 v3.0）
 """
 import os
 import sys
@@ -18,31 +18,45 @@ if str(COSYVOICE_PATH) not in sys.path:
     sys.path.insert(0, str(COSYVOICE_PATH / "third_party" / "Matcha-TTS"))
 
 class CosyVoiceEngine:
-    """CosyVoice 2.0 英文TTS引擎"""
-    
+    """CosyVoice TTS引擎（自动检测 v2.0 或 v3.0）"""
+
     def __init__(self, model_path: str, device: str = "cuda"):
         self.model_path = model_path
         self.device = device
         self._model = None
         self._loaded = False
-        
+        # 根据模型路径判断版本
+        self._is_v3 = "CosyVoice3" in model_path or "Fun-CosyVoice" in model_path
+
     def _load_model(self):
         if not self._loaded:
             try:
-                from cosyvoice.cli.cosyvoice import CosyVoice2
                 import torch
-                # 只有在 CUDA 可用时才开启 fp16，Mac(MPS)和CPU环境下保持 False 以确保绝对稳定
+                # 只有在 CUDA 可用时才开启 fp16
                 use_fp16 = torch.cuda.is_available()
-                
-                print(f"🔄 Loading CosyVoice 2.0 on {self.device} (fp16={use_fp16})...")
-                self._model = CosyVoice2(
-                    self.model_path,
-                    load_jit=True,
-                    load_trt=False,
-                    fp16=use_fp16
-                )
+
+                if self._is_v3:
+                    from cosyvoice.cli.cosyvoice import CosyVoice3
+                    print(f"🔄 Loading CosyVoice 3.0 on {self.device} (fp16={use_fp16})...")
+                    self._model = CosyVoice3(
+                        self.model_path,
+                        load_jit=True,
+                        load_trt=False,
+                        fp16=use_fp16
+                    )
+                    print(f"✅ CosyVoice 3.0 loaded on {self.device} (fp16={use_fp16})!")
+                else:
+                    from cosyvoice.cli.cosyvoice import CosyVoice2
+                    print(f"🔄 Loading CosyVoice 2.0 on {self.device} (fp16={use_fp16})...")
+                    self._model = CosyVoice2(
+                        self.model_path,
+                        load_jit=True,
+                        load_trt=False,
+                        fp16=use_fp16
+                    )
+                    print(f"✅ CosyVoice 2.0 loaded on {self.device} (fp16={use_fp16})!")
+
                 self._loaded = True
-                print(f"✅ CosyVoice 2.0 loaded on {self.device} (fp16={use_fp16})!")
             except Exception as e:
                 print(f"❌ Failed to load CosyVoice: {e}")
                 raise
