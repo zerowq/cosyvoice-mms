@@ -113,8 +113,8 @@ class CosyVoiceEngine:
             model = self.model
             spk_list = model.list_available_spks()
 
-            # 优先使用预设音色，不使用参考音频
-            if voice in spk_list:
+            # 尝试使用预设音色
+            if spk_list and voice in spk_list:
                 print(f"🎤 [CosyVoice] Using preset voice: {voice}")
                 iterable = model.inference_sft(text, voice, stream=True)
             elif spk_list:
@@ -123,7 +123,26 @@ class CosyVoiceEngine:
                 print(f"⚠️ [CosyVoice] Voice '{voice}' not found, using preset voice: {default_voice}")
                 iterable = model.inference_sft(text, default_voice, stream=True)
             else:
-                raise ValueError("No preset voices available in CosyVoice model")
+                # 没有预设音色，使用零样本克隆（需要参考音频）
+                print(f"⚠️ [CosyVoice] No preset voices available, using zero-shot mode")
+                voice_dir = os.path.join(ROOT_DIR, "static", "voices")
+                ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
+
+                if not os.path.exists(ref_audio_path):
+                    # 尝试查找任何可用的参考音频
+                    if os.path.exists(voice_dir):
+                        wav_files = [f for f in os.listdir(voice_dir) if f.endswith('.wav')]
+                        if wav_files:
+                            ref_audio_path = os.path.join(voice_dir, wav_files[0])
+                            print(f"🎤 [CosyVoice] Using reference audio: {wav_files[0]}")
+                        else:
+                            raise ValueError("No preset voices or reference audio files available")
+                    else:
+                        raise ValueError("No preset voices available and voices directory not found")
+                else:
+                    print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
+
+                iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
 
             # 流式迭代
             for chunk in iterable:
