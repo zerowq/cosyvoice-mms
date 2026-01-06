@@ -21,7 +21,8 @@ def check_models_exist():
     required_models = [
         MODELS_DIR / "CosyVoice2-0.5B",
         MODELS_DIR / "mms-tts-eng",
-        MODELS_DIR / "mms-tts-zlm"
+        MODELS_DIR / "mms-tts-zlm",
+        MODELS_DIR / "kokoro"
     ]
 
     missing_models = []
@@ -83,7 +84,7 @@ def download_mms():
 
 def download_wetext():
     """下载 WeText 前端资源及 ModelScope 元数据"""
-    print("\n📥 [3/3] Downloading WeText resources...")
+    print("\n📥 [3/4] Downloading WeText resources...")
     try:
         from modelscope.hub.snapshot_download import snapshot_download
         # 显式下载到 MODELS_DIR，不再使用 local_dir 干扰元数据
@@ -91,6 +92,46 @@ def download_wetext():
         print(f"✅ WeText resources synced to {MODELS_DIR}")
     except Exception as e:
         print(f"❌ Error downloading WeText: {e}")
+
+def download_kokoro():
+    """下载 Kokoro-82M 模型"""
+    print("\n📥 [4/4] Downloading Kokoro-82M model...")
+    try:
+        import urllib.request
+
+        kokoro_dir = MODELS_DIR / "kokoro"
+        kokoro_dir.mkdir(parents=True, exist_ok=True)
+
+        # Kokoro 模型文件 URL (从 GitHub releases)
+        model_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v1.0.onnx"
+        voices_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/voices.json"
+
+        model_path = kokoro_dir / "kokoro-v1.0.onnx"
+        voices_path = kokoro_dir / "voices.json"
+
+        if model_path.exists() and voices_path.exists():
+            print(f"  ⏩ Kokoro model already exists, skipping...")
+            return
+
+        # 下载模型文件
+        if not model_path.exists():
+            print(f"  Downloading kokoro-v1.0.onnx...")
+            urllib.request.urlretrieve(model_url, model_path)
+            print(f"  ✅ Downloaded kokoro-v1.0.onnx")
+
+        # 下载音色文件
+        if not voices_path.exists():
+            print(f"  Downloading voices.json...")
+            urllib.request.urlretrieve(voices_url, voices_path)
+            print(f"  ✅ Downloaded voices.json")
+
+        print(f"✅ Kokoro-82M model saved to {kokoro_dir}")
+
+    except Exception as e:
+        print(f"❌ Error downloading Kokoro model: {e}")
+        print("\n💡 Manual Download Option:")
+        print("Download from: https://github.com/thewh1teagle/kokoro-onnx/releases")
+        print("And place files in: models/kokoro/")
 
 def main(auto_download=False):
     """
@@ -116,6 +157,7 @@ def main(auto_download=False):
     download_cosyvoice()
     download_mms()
     download_wetext()
+    download_kokoro()
     print("\n🎉 Model preparation finished.")
     return True
 
