@@ -103,7 +103,7 @@ def download_kokoro():
         kokoro_dir.mkdir(parents=True, exist_ok=True)
 
         # Kokoro 模型文件 URL (从 GitHub releases)
-        model_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v1.0.onnx"
+        model_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
         voices_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/voices.json"
 
         model_path = kokoro_dir / "kokoro-v1.0.onnx"
