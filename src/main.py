@@ -63,6 +63,7 @@ app.add_middleware(
 
 # 静态文件
 app.mount("/static", StaticFiles(directory=config.static_dir), name="static")
+app.mount("/output", StaticFiles(directory=config.output_dir), name="output")
 
 class TTSRequest(BaseModel):
     text: str
