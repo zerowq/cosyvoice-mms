@@ -18,33 +18,45 @@ def setup_mirror():
 
 def check_models_exist():
     """检查所有必需的模型是否已存在"""
+    # 检查 CosyVoice（优先检查 3.0，回退到 2.0）
+    cosyvoice_v3 = MODELS_DIR / "Fun-CosyVoice3-0.5B"
+    cosyvoice_v2 = MODELS_DIR / "CosyVoice2-0.5B"
+    has_cosyvoice = (cosyvoice_v3.exists() and len(list(cosyvoice_v3.glob("*"))) > 0) or \
+                     (cosyvoice_v2.exists() and len(list(cosyvoice_v2.glob("*"))) > 0)
+
     required_models = [
-        MODELS_DIR / "CosyVoice2-0.5B",
-        MODELS_DIR / "mms-tts-eng",
-        MODELS_DIR / "mms-tts-zlm",
-        MODELS_DIR / "kokoro"
+        ("CosyVoice", has_cosyvoice),
+        ("mms-tts-eng", (MODELS_DIR / "mms-tts-eng").exists()),
+        ("mms-tts-zlm", (MODELS_DIR / "mms-tts-zlm").exists()),
+        ("kokoro", (MODELS_DIR / "kokoro").exists())
     ]
 
-    missing_models = []
-    for model_path in required_models:
-        if not model_path.exists() or len(list(model_path.glob("*"))) == 0:
-            missing_models.append(model_path.name)
-
+    missing_models = [name for name, exists in required_models if not exists]
     return len(missing_models) == 0, missing_models
 
 def download_cosyvoice():
-    """下载 CosyVoice 2.0 模型 (从 ModelScope 下载，国内速度快)"""
-    print("\n📥 [1/2] Downloading CosyVoice 2.0...")
+    """下载 Fun-CosyVoice 3.0 模型 (最新版本，从 ModelScope 下载)"""
+    print("\n📥 [1/2] Downloading Fun-CosyVoice 3.0 (latest version)...")
     try:
         from modelscope import snapshot_download
-        path = MODELS_DIR / "CosyVoice2-0.5B"
+        path = MODELS_DIR / "Fun-CosyVoice3-0.5B"
         snapshot_download(
-            'iic/CosyVoice2-0.5B',
+            'FunAudioLLM/Fun-CosyVoice3-0.5B-2512',
             local_dir=str(path)
         )
-        print(f"✅ CosyVoice 2.0 downloaded to {path}")
+        print(f"✅ Fun-CosyVoice 3.0 downloaded to {path}")
     except Exception as e:
         print(f"❌ Error downloading CosyVoice: {e}")
+        print("\n💡 Fallback: Trying CosyVoice 2.0...")
+        try:
+            path = MODELS_DIR / "CosyVoice2-0.5B"
+            snapshot_download(
+                'iic/CosyVoice2-0.5B',
+                local_dir=str(path)
+            )
+            print(f"✅ CosyVoice 2.0 downloaded to {path}")
+        except Exception as e2:
+            print(f"❌ Error downloading CosyVoice 2.0: {e2}")
 
 def download_mms():
     """下载 MMS-TTS 模型"""

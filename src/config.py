@@ -58,32 +58,51 @@ def get_default_device():
         return "mps"
     return "cpu"
 
+def get_cosyvoice_model_path():
+    """自动检测可用的 CosyVoice 模型（优先使用 3.0）"""
+    v3_path = ROOT_DIR / "models" / "Fun-CosyVoice3-0.5B"
+    v2_path = ROOT_DIR / "models" / "CosyVoice2-0.5B"
+
+    if v3_path.exists():
+        print(f"🎤 Using Fun-CosyVoice 3.0: {v3_path}")
+        return str(v3_path)
+    elif v2_path.exists():
+        print(f"🎤 Using CosyVoice 2.0: {v2_path}")
+        return str(v2_path)
+    else:
+        # 默认返回 v3 路径，让下载脚本处理
+        return str(v3_path)
+
 @dataclass
 class TTSConfig:
     """TTS配置类"""
-    
+
     # 模型路径
-    cosyvoice_model_path: str = str(ROOT_DIR / "models" / "CosyVoice2-0.5B")
+    cosyvoice_model_path: str = None  # 将在 __post_init__ 中设置
     mms_model_dir: str = str(ROOT_DIR / "models")
-    
+
     # 设备配置
     device: str = get_default_device()
-    
+
     # 路径配置
     cache_dir: str = str(ROOT_DIR / "tts_cache")
     output_dir: str = str(ROOT_DIR / "output")
     static_dir: str = str(ROOT_DIR / "static")
     log_dir: str = str(ROOT_DIR / "logs")
-    
+
     # 默认声音 (CosyVoice 预设 ID 通常为中文命名，支持跨语言)
     default_english_voice: str = "中文女"
     default_malay_voice: str = "default"
-    
+
     # API配置
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    
+
     def __post_init__(self):
+        # 自动检测 CosyVoice 模型路径
+        if self.cosyvoice_model_path is None:
+            self.cosyvoice_model_path = get_cosyvoice_model_path()
+
         # 确保所有必要目录存在
         for path in [self.cache_dir, self.output_dir, self.static_dir, self.log_dir]:
             os.makedirs(path, exist_ok=True)
