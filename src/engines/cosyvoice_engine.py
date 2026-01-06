@@ -112,29 +112,18 @@ class CosyVoiceEngine:
         try:
             model = self.model
             spk_list = model.list_available_spks()
-            clean_voice = voice.strip().replace(" ", "").lower()
-            
-            # 推理逻辑选择
-            if voice in spk_list:
-                iterable = model.inference_sft(text, voice, stream=True)
-            else:
-                voice_dir = os.path.join(ROOT_DIR, "static", "voices")
-                ref_audio_path = os.path.join(voice_dir, f"{voice.strip()}.wav")
-                
-                if not os.path.exists(ref_audio_path) and os.path.exists(voice_dir):
-                    for f in os.listdir(voice_dir):
-                        if f.lower().endswith(".wav"):
-                            f_name = f.rsplit('.', 1)[0]
-                            if f_name.replace(" ", "").lower() == clean_voice:
-                                ref_audio_path = os.path.join(voice_dir, f)
-                                break
 
-                if os.path.exists(ref_audio_path):
-                    print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
-                    iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
-                else:
-                    print(f"⚠️ [CosyVoice] Voice '{voice}' not found, falling back to English default")
-                    iterable = model.inference_sft(text, "英文女", stream=True)
+            # 优先使用预设音色，不使用参考音频
+            if voice in spk_list:
+                print(f"🎤 [CosyVoice] Using preset voice: {voice}")
+                iterable = model.inference_sft(text, voice, stream=True)
+            elif spk_list:
+                # 使用第一个可用的预设音色
+                default_voice = spk_list[0]
+                print(f"⚠️ [CosyVoice] Voice '{voice}' not found, using preset voice: {default_voice}")
+                iterable = model.inference_sft(text, default_voice, stream=True)
+            else:
+                raise ValueError("No preset voices available in CosyVoice model")
 
             # 流式迭代
             for chunk in iterable:
