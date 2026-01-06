@@ -1,6 +1,10 @@
 """
 CosyVoice vs Kokoro-82M 对比测试脚本
 测试维度: 音质、速度、GPU 显存占用
+
+支持 CosyVoice 2.0 和 3.0 自动检测
+- CosyVoice 2.0: 使用预设音色 (inference_sft)
+- CosyVoice 3.0: 使用参考音频 (inference_cross_lingual)
 """
 import os
 import sys
@@ -159,6 +163,7 @@ def benchmark_cosyvoice():
             results["gpu_memory_mb"] = mem_after - mem_before
 
         # 预热（不计入测试时间）
+        # 注意：CosyVoice3 没有预设音色，会自动使用 static/voices/英文女.wav 参考音频
         logger.info(f"🔥 [CosyVoice] 预热模型...")
         start = time.time()
         engine.synthesize("Warmup test.", voice="英文女")
@@ -262,7 +267,7 @@ def main():
     
     # 清理后测试 CosyVoice
     clear_gpu_memory()
-    logger.info("\n--- 测试 CosyVoice 2.0 ---")
+    logger.info("\n--- 测试 CosyVoice (自动检测版本) ---")
     cosyvoice_results = benchmark_cosyvoice()
     
     # 打印对比结果
