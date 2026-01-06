@@ -36,20 +36,25 @@ def download_with_aria2c():
     model_id = "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"
     base_url = f"https://www.modelscope.cn/api/v1/models/{model_id}/repo?Revision=master&FilePath="
 
-    # 主要模型文件列表（根据 CosyVoice2-0.5B 的文件结构推测）
+    # Fun-CosyVoice3-0.5B 实际文件列表
     files = [
         "campplus.onnx",
         "configuration.json",
-        "cosyvoice2.yaml",
+        "cosyvoice3.yaml",
         "flow.pt",
-        "flow.cache.pt",
-        "flow.encoder.fp16.zip",
-        "flow.encoder.fp32.zip",
         "flow.decoder.estimator.fp32.onnx",
         "hift.pt",
         "llm.pt",
-        "speech_tokenizer_v2.onnx",
+        "llm.rl.pt",
+        "speech_tokenizer_v3.onnx",
         "README.md",
+        "asset/dingding.png",
+        "CosyVoice-BlankEN/config.json",
+        "CosyVoice-BlankEN/generation_config.json",
+        "CosyVoice-BlankEN/merges.txt",
+        "CosyVoice-BlankEN/model.safetensors",
+        "CosyVoice-BlankEN/tokenizer_config.json",
+        "CosyVoice-BlankEN/vocab.json",
     ]
 
     print(f"\n📁 Target directory: {target_path}\n")
@@ -58,6 +63,9 @@ def download_with_aria2c():
     for file in files:
         file_url = base_url + file
         output_file = target_path / file
+
+        # 确保子目录存在
+        output_file.parent.mkdir(parents=True, exist_ok=True)
 
         if output_file.exists():
             print(f"⏩ Skipping {file} (already exists)")
@@ -70,8 +78,8 @@ def download_with_aria2c():
             '-s', '16',          # 16 splits
             '-k', '1M',          # chunk size
             '--file-allocation=none',
-            '-d', str(target_path),
-            '-o', file,
+            '-d', str(output_file.parent),
+            '-o', output_file.name,
             file_url
         ]
 
