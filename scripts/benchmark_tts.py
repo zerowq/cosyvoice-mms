@@ -269,7 +269,11 @@ def main():
     
     # 测试 Kokoro
     logger.info("\n--- 测试 Kokoro-82M ---")
-    kokoro_results = benchmark_kokoro()
+    try:
+        kokoro_results = benchmark_kokoro()
+    except Exception as e:
+        logger.error(f"⚠️ Kokoro benchmarking failed (likely due to missing dependencies): {e}")
+        kokoro_results = None
     
     # 清理后测试 CosyVoice
     clear_gpu_memory()
