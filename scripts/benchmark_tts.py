@@ -153,7 +153,7 @@ def benchmark_cosyvoice():
         # 加载模型（单独计时）
         logger.info(f"📥 [CosyVoice] 加载模型 {model_version}...")
         start = time.time()
-        engine = CosyVoiceEngine(model_path)
+        engine = CosyVoiceEngine(model_path, device="cpu")
         engine._load_model()
         results["load_time"] = time.time() - start
         logger.info(f"✅ [CosyVoice] 模型加载完成: {results['load_time']:.2f}s")
@@ -166,7 +166,7 @@ def benchmark_cosyvoice():
         # 注意：CosyVoice3 没有预设音色，会自动使用 static/voices/英文女.wav 参考音频
         logger.info(f"🔥 [CosyVoice] 预热模型...")
         start = time.time()
-        engine.synthesize("Warmup test.", voice="英文女")
+        engine.synthesize("Warmup test.", voice="en_female")
         results["warmup_time"] = time.time() - start
         logger.info(f"✅ [CosyVoice] 预热完成: {results['warmup_time']:.2f}s")
 
@@ -178,7 +178,7 @@ def benchmark_cosyvoice():
         for i, text in enumerate(TEST_TEXTS):
             output_file = str(output_dir / f"cosyvoice_test_{i+1}.wav")
             start = time.time()
-            engine.synthesize(text, voice="英文女", output_path=output_file)
+            engine.synthesize(text, voice="en_female", output_path=output_file)
             elapsed = time.time() - start
             results["synthesis_times"].append({
                 "text_length": len(text),
