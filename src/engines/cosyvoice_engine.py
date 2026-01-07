@@ -163,6 +163,10 @@ class CosyVoiceEngine:
         """
         查找参考音频文件
         """
+        # 1. 优先检查是否是直接路径（绝对路径或相对路径）
+        if os.path.isfile(voice):
+            return voice
+
         voice_dir = os.path.join(ROOT_DIR, "static", "voices")
 
         # 尝试多种文件名格式
