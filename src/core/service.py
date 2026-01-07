@@ -35,7 +35,8 @@ class UnifiedTTSService:
         if self._cosyvoice is None:
             self._cosyvoice = CosyVoiceEngine(
                 model_path=self.config.cosyvoice_model_path,
-                device=self.config.device
+                device=self.config.device,
+                seed=42  # 固定随机种子以保证音色一致性
             )
         return self._cosyvoice
     
