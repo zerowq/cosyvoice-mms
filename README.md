@@ -94,6 +94,12 @@ engine = CosyVoiceEngine(model_path, device="cpu", trim_ref_audio_start=True)
 
 # Disable trimming (if you need full audio)
 engine = CosyVoiceEngine(model_path, device="cpu", trim_ref_audio_start=False)
+
+# Set random seed for consistent voice (default: 42)
+engine = CosyVoiceEngine(model_path, device="cpu", seed=42)
+
+# Disable random seed (different voice each time)
+engine = CosyVoiceEngine(model_path, device="cpu", seed=None)
 ```
 
 ### Results

@@ -32,10 +32,11 @@ if str(COSYVOICE_PATH) not in sys.path:
 class CosyVoiceEngine:
     """CosyVoice TTS引擎（自动检测 v2.0 或 v3.0）"""
 
-    def __init__(self, model_path: str, device: str = "cpu", trim_ref_audio_start: bool = True):
+    def __init__(self, model_path: str, device: str = "cpu", trim_ref_audio_start: bool = True, seed: int = 42):
         self.model_path = model_path
         self.device = device
         self.trim_ref_audio_start = trim_ref_audio_start  # 是否裁剪参考音频生成的开头
+        self.seed = seed  # 随机种子，用于保证音色一致性
         self._model = None
         self._loaded = False
         # 根据模型路径判断版本
@@ -92,6 +93,15 @@ class CosyVoiceEngine:
         - 如果 voice 是预设音色，使用 inference_sft
         - 否则使用参考音频进行 inference_cross_lingual
         """
+        # 设置随机种子以保证音色一致性
+        if self.seed is not None:
+            torch.manual_seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(self.seed)
+                torch.cuda.manual_seed_all(self.seed)
+            import numpy as np
+            np.random.seed(self.seed)
+
         audio_chunks = []
         use_ref_audio = False
 
@@ -157,6 +167,15 @@ class CosyVoiceEngine:
         """
         流式合成音频
         """
+        # 设置随机种子以保证音色一致性
+        if self.seed is not None:
+            torch.manual_seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(self.seed)
+                torch.cuda.manual_seed_all(self.seed)
+            import numpy as np
+            np.random.seed(self.seed)
+
         try:
             model = self.model
             spk_list = model.list_available_spks()
