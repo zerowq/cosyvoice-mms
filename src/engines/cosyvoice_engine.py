@@ -16,6 +16,8 @@ MODELS_DIR = ROOT_DIR / "models"
 
 # 强制设置 ModelScope 缓存目录，确保能找到 download_models.py 下载的 wetext 资源
 os.environ["MODELSCOPE_CACHE"] = str(MODELS_DIR)
+# 开启 ModelScope 离线模式，禁止联网检查更新
+os.environ["MODELSCOPE_OFFLINE"] = "true"
 
 # 重要：必须在导入 CosyVoice 之前添加 Matcha-TTS 路径
 # 这样才能正确导入 matcha.models.components.flow_matching 等模块
