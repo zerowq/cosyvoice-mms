@@ -78,6 +78,12 @@ class CosyVoiceEngine:
     def list_voices(self) -> list:
         return self.model.list_available_spks()
 
+    def _format_text_for_v3(self, text: str) -> str:
+        """为 CosyVoice3 格式化文本，添加必要的 <|endofprompt|> 标记"""
+        if self._is_v3 and '<|endofprompt|>' not in text:
+            return f"You are a helpful assistant.<|endofprompt|>{text}"
+        return text
+
     def synthesize(self, text: str, voice: str = "英文女", output_path: Optional[str] = None, stream: bool = False) -> torch.Tensor:
         """
         合成语音
@@ -85,6 +91,9 @@ class CosyVoiceEngine:
         - 否则使用参考音频进行 inference_cross_lingual
         """
         audio_chunks = []
+        # CosyVoice3 需要特殊的文本格式
+        text = self._format_text_for_v3(text)
+
         try:
             model = self.model
             spk_list = model.list_available_spks()
@@ -125,6 +134,9 @@ class CosyVoiceEngine:
         """
         流式合成音频
         """
+        # CosyVoice3 需要特殊的文本格式
+        text = self._format_text_for_v3(text)
+
         try:
             model = self.model
             spk_list = model.list_available_spks()
