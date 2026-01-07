@@ -153,7 +153,12 @@ def benchmark_cosyvoice():
         # 加载模型（单独计时）
         logger.info(f"📥 [CosyVoice] 加载模型 {model_version}...")
         start = time.time()
-        engine = CosyVoiceEngine(model_path, device="cpu")
+        # 自动设备选择：Linux+CUDA用cuda，Mac或无显卡用cpu
+        import sys
+        device = "cuda" if torch.cuda.is_available() and sys.platform != "darwin" else "cpu"
+        logger.info(f"🖥️  Using device: {device}")
+        
+        engine = CosyVoiceEngine(model_path, device=device)
         engine._load_model()
         results["load_time"] = time.time() - start
         logger.info(f"✅ [CosyVoice] 模型加载完成: {results['load_time']:.2f}s")

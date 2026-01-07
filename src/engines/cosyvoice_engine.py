@@ -38,8 +38,9 @@ class CosyVoiceEngine:
         if not self._loaded:
             try:
                 import torch
-                # 只有在 CUDA 可用时才开启 fp16
-                use_fp16 = torch.cuda.is_available()
+                # 为了保证生成音频的正确性（避免破音/乱码），暂时强制关闭 fp16
+                # use_fp16 = torch.cuda.is_available()
+                use_fp16 = False
 
                 if self._is_v3:
                     from cosyvoice.cli.cosyvoice import CosyVoice3
