@@ -108,8 +108,8 @@ class CosyVoiceEngine:
                 if ref_audio_path:
                     use_ref_audio = True
                     print(f"🎤 Using reference audio: {ref_audio_path}")
-                    # 添加语言标记（如果文本中没有）
-                    if not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
+                    # 只在CosyVoice 3.0中添加语言标记
+                    if self._is_v3 and not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
                         # 简单检测：如果包含中文字符，使用中文标记，否则使用英文标记
                         if any('\u4e00' <= c <= '\u9fff' for c in text):
                             text = '<|zh|>' + text
@@ -167,8 +167,8 @@ class CosyVoiceEngine:
                 ref_audio_path = self._find_reference_audio(voice)
                 if ref_audio_path:
                     print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
-                    # 添加语言标记（如果文本中没有）
-                    if not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
+                    # 只在CosyVoice 3.0中添加语言标记
+                    if self._is_v3 and not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
                         if any('\u4e00' <= c <= '\u9fff' for c in text):
                             text = '<|zh|>' + text
                         else:
