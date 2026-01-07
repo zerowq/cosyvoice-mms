@@ -32,9 +32,10 @@ if str(COSYVOICE_PATH) not in sys.path:
 class CosyVoiceEngine:
     """CosyVoice TTS引擎（自动检测 v2.0 或 v3.0）"""
 
-    def __init__(self, model_path: str, device: str = "cpu"):
+    def __init__(self, model_path: str, device: str = "cpu", trim_ref_audio_start: bool = True):
         self.model_path = model_path
         self.device = device
+        self.trim_ref_audio_start = trim_ref_audio_start  # 是否裁剪参考音频生成的开头
         self._model = None
         self._loaded = False
         # 根据模型路径判断版本
@@ -92,6 +93,7 @@ class CosyVoiceEngine:
         - 否则使用参考音频进行 inference_cross_lingual
         """
         audio_chunks = []
+        use_ref_audio = False
 
         try:
             model = self.model
@@ -104,7 +106,15 @@ class CosyVoiceEngine:
                 # 使用参考音频进行跨语言合成
                 ref_audio_path = self._find_reference_audio(voice)
                 if ref_audio_path:
+                    use_ref_audio = True
                     print(f"🎤 Using reference audio: {ref_audio_path}")
+                    # 添加语言标记（如果文本中没有）
+                    if not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
+                        # 简单检测：如果包含中文字符，使用中文标记，否则使用英文标记
+                        if any('\u4e00' <= c <= '\u9fff' for c in text):
+                            text = '<|zh|>' + text
+                        else:
+                            text = '<|en|>' + text
                     # 直接传递路径，官方代码内部会处理加载和重采样
                     iterable = model.inference_cross_lingual(text, ref_audio_path, stream=stream)
                 else:
@@ -124,9 +134,23 @@ class CosyVoiceEngine:
 
         audio = torch.cat(audio_chunks, dim=1) if len(audio_chunks) > 1 else audio_chunks[0]
 
+        # 裁剪开头的低能量部分（修复CosyVoice生成音频开头有额外内容的问题）
+        if use_ref_audio and self.trim_ref_audio_start:
+            audio = self._trim_audio_start(audio)
+
         if output_path:
             os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
             torchaudio.save(output_path, audio, self.sample_rate)
+        return audio
+
+    def _trim_audio_start(self, audio: torch.Tensor, trim_seconds: float = 1.5) -> torch.Tensor:
+        """
+        裁剪音频开头的固定时长（修复CosyVoice生成音频开头有额外内容的问题）
+        CosyVoice在使用参考音频时，会在开头生成约0.5-1.5秒的额外内容
+        """
+        trim_samples = int(trim_seconds * self.sample_rate)
+        if audio.shape[1] > trim_samples:
+            return audio[:, trim_samples:]
         return audio
 
     def synthesize_stream(self, text: str, voice: str = "英文女") -> Generator[bytes, None, None]:
@@ -143,6 +167,12 @@ class CosyVoiceEngine:
                 ref_audio_path = self._find_reference_audio(voice)
                 if ref_audio_path:
                     print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
+                    # 添加语言标记（如果文本中没有）
+                    if not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
+                        if any('\u4e00' <= c <= '\u9fff' for c in text):
+                            text = '<|zh|>' + text
+                        else:
+                            text = '<|en|>' + text
                     iterable = model.inference_cross_lingual(text, ref_audio_path, stream=True)
                 else:
                     print(f"⚠️ [CosyVoice] Voice '{voice}' not found, falling back to first available")

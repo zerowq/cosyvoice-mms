@@ -1,16 +1,17 @@
 # CosyVoice-MMS
 
-CosyVoice 2.0 + MMS-TTS - High-quality Text-to-Speech service supporting English and Malay languages.
+CosyVoice 2.0/3.0 + MMS-TTS - High-quality Text-to-Speech service supporting English and Malay languages.
 
 ## Features
 
-- English TTS using CosyVoice 2.0 with zero-shot voice cloning
+- English TTS using CosyVoice 2.0/3.0 with zero-shot voice cloning
 - Malay TTS using Meta MMS
 - GPU-accelerated inference
 - Streaming audio generation
 - RESTful API
 - Offline/air-gapped deployment support
 - **Automatic model download on first startup**
+- **Fixed CosyVoice 3.0 audio quality issues** (automatic language tag and audio trimming)
 
 ## Quick Start
 
@@ -75,6 +76,31 @@ Models are automatically downloaded from:
 - **MMS-TTS**: HuggingFace (facebook/mms-tts-eng, facebook/mms-tts-zlm)
 
 Total model size: ~8-10GB
+
+## CosyVoice 3.0 Audio Quality Fix
+
+### Issue
+CosyVoice 3.0 generates extra content (0.5-1.5 seconds) at the beginning of audio when using reference audio (`inference_cross_lingual`). This is a known model behavior.
+
+### Solution
+The engine now automatically:
+1. **Adds language tags** - Prepends `<|en|>` or `<|zh|>` to text based on content detection
+2. **Trims audio start** - Removes the first 1.5 seconds of generated audio to eliminate artifacts
+
+### Configuration
+```python
+# Enable trimming (default, recommended)
+engine = CosyVoiceEngine(model_path, device="cpu", trim_ref_audio_start=True)
+
+# Disable trimming (if you need full audio)
+engine = CosyVoiceEngine(model_path, device="cpu", trim_ref_audio_start=False)
+```
+
+### Results
+- **Before fix**: "And, all! Hello, this is a test."
+- **After fix**: "This is a test." (cleaner, but may trim some initial content)
+
+**Note**: Trimming works on both CPU and GPU. Adjust `trim_seconds` in `_trim_audio_start()` if needed.
 
 ## License
 
