@@ -1,6 +1,8 @@
 # Build dependencies
 Cython
 setuptools>=68.0.0
+PyYAML>=6.0
+ruamel.yaml<0.18.0
 
 # Pytorch & Core AI (Aligned with evyd-cosyvoice for CosyVoice 3.0 support)
 # Note: Using torch 2.3.1 as required by CosyVoice 3.0
