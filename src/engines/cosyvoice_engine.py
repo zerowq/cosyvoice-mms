@@ -13,10 +13,14 @@ from typing import Optional, Generator
 ROOT_DIR = Path(__file__).parent.parent.parent.absolute()
 COSYVOICE_PATH = ROOT_DIR / "CosyVoice"
 
-# 动态添加路径以便导入 CosyVoice
+# 重要：必须在导入 CosyVoice 之前添加 Matcha-TTS 路径
+# 这样才能正确导入 matcha.models.components.flow_matching 等模块
+if str(COSYVOICE_PATH / "third_party" / "Matcha-TTS") not in sys.path:
+    sys.path.insert(0, str(COSYVOICE_PATH / "third_party" / "Matcha-TTS"))
+
+# 然后添加 CosyVoice 路径
 if str(COSYVOICE_PATH) not in sys.path:
     sys.path.insert(0, str(COSYVOICE_PATH))
-    sys.path.insert(0, str(COSYVOICE_PATH / "third_party" / "Matcha-TTS"))
 
 
 class CosyVoiceEngine:
