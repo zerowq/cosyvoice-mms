@@ -21,8 +21,8 @@ from loguru import logger
 
 # 测试文本 (英语)
 TEST_TEXTS = [
-    "... Hello, this is a short sentence for testing.",
-    "... The quick brown fox jumps over the lazy dog. This is a medium length sentence to evaluate the quality of speech synthesis.",
+    "Hello, this is a short sentence for testing.",
+    "The quick brown fox jumps over the lazy dog. This is a medium length sentence to evaluate the quality of speech synthesis.",
     "Artificial intelligence is transforming the way we interact with technology. From voice assistants to autonomous vehicles, AI is becoming an integral part of our daily lives. This longer text will help us evaluate the performance and quality of different text-to-speech models under more demanding conditions.",
 ]
 
