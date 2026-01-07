@@ -180,11 +180,19 @@ def benchmark_cosyvoice():
         output_dir = ROOT_DIR / "output" / "benchmark"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # 优先使用 Kokoro 生成的纯净音频作为参考
+        kokoro_ref_path = output_dir / "kokoro_test_1.wav"
+        if kokoro_ref_path.exists():
+            voice_ref = str(kokoro_ref_path)
+            # logger.info(f"🎤 使用 Kokoro 生成的纯净音频作为参考: {kokoro_ref_path.name}")
+        else:
+            voice_ref = "en_female"
+
         logger.info("⏱️  [CosyVoice] 开始合成测试...")
         for i, text in enumerate(TEST_TEXTS):
             output_file = str(output_dir / f"cosyvoice_test_{i+1}.wav")
             start = time.time()
-            engine.synthesize(text, voice="en_female", output_path=output_file)
+            engine.synthesize(text, voice=voice_ref, output_path=output_file)
             elapsed = time.time() - start
             results["synthesis_times"].append({
                 "text_length": len(text),
