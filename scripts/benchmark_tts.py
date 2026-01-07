@@ -49,9 +49,14 @@ def clear_gpu_memory():
     except:
         pass
 
-def benchmark_kokoro():
-    """测试 Kokoro-82M"""
+def benchmark_kokoro(provider="auto"):
+    """测试 Kokoro-82M
+
+    Args:
+        provider: ONNX执行提供者 ("auto", "cpu", "gpu")
+    """
     from src.engines.kokoro_engine import KokoroEngine
+    import os
 
     model_path = str(ROOT_DIR / "models" / "kokoro" / "kokoro-v1.0.onnx")
     voices_path = str(ROOT_DIR / "models" / "kokoro" / "voices.json")
@@ -60,8 +65,20 @@ def benchmark_kokoro():
         logger.error("❌ Kokoro 模型文件缺失，跳过测试")
         return None
 
+    # 设置ONNX provider
+    if provider == "cpu":
+        os.environ["ONNX_PROVIDER"] = "CPUExecutionProvider"
+        model_name = "Kokoro-82M (CPU)"
+    elif provider == "gpu":
+        os.environ["ONNX_PROVIDER"] = "CUDAExecutionProvider"
+        model_name = "Kokoro-82M (GPU)"
+    else:
+        # auto模式：移除环境变量，让kokoro自动选择
+        os.environ.pop("ONNX_PROVIDER", None)
+        model_name = "Kokoro-82M (Auto)"
+
     results = {
-        "model": "Kokoro-82M",
+        "model": model_name,
         "load_time": 0,
         "warmup_time": 0,
         "synthesis_times": [],
@@ -72,7 +89,7 @@ def benchmark_kokoro():
     mem_before = get_gpu_memory_mb()
 
     # 加载模型（单独计时）
-    logger.info("📥 [Kokoro] 加载模型...")
+    logger.info(f"📥 [Kokoro] 加载模型 ({provider} mode)...")
     start = time.time()
     engine = KokoroEngine(model_path, voices_path)
     engine._load_model()
@@ -273,23 +290,57 @@ def print_comparison(kokoro_results, cosyvoice_results):
     print("\n" + "=" * 70)
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="TTS性能对比测试")
+    parser.add_argument("--kokoro-mode", choices=["auto", "cpu", "gpu", "both"], default="auto",
+                        help="Kokoro测试模式: auto(自动), cpu(仅CPU), gpu(仅GPU), both(CPU+GPU对比)")
+    args = parser.parse_args()
+
     logger.info("🚀 开始 CosyVoice vs Kokoro-82M 对比测试...")
-    
+
+    kokoro_results_list = []
+
     # 测试 Kokoro
-    logger.info("\n--- 测试 Kokoro-82M ---")
-    try:
-        kokoro_results = benchmark_kokoro()
-    except Exception as e:
-        logger.error(f"⚠️ Kokoro benchmarking failed (likely due to missing dependencies): {e}")
-        kokoro_results = None
-    
+    if args.kokoro_mode == "both":
+        # CPU + GPU 对比测试
+        logger.info("\n--- 测试 Kokoro-82M (CPU) ---")
+        try:
+            kokoro_cpu = benchmark_kokoro(provider="cpu")
+            if kokoro_cpu:
+                kokoro_results_list.append(kokoro_cpu)
+        except Exception as e:
+            logger.error(f"⚠️ Kokoro CPU测试失败: {e}")
+
+        clear_gpu_memory()
+
+        logger.info("\n--- 测试 Kokoro-82M (GPU) ---")
+        try:
+            kokoro_gpu = benchmark_kokoro(provider="gpu")
+            if kokoro_gpu:
+                kokoro_results_list.append(kokoro_gpu)
+        except Exception as e:
+            logger.error(f"⚠️ Kokoro GPU测试失败: {e}")
+    else:
+        # 单一模式测试
+        logger.info(f"\n--- 测试 Kokoro-82M ({args.kokoro_mode}) ---")
+        try:
+            kokoro_results = benchmark_kokoro(provider=args.kokoro_mode)
+            if kokoro_results:
+                kokoro_results_list.append(kokoro_results)
+        except Exception as e:
+            logger.error(f"⚠️ Kokoro benchmarking failed: {e}")
+
     # 清理后测试 CosyVoice
     clear_gpu_memory()
     logger.info("\n--- 测试 CosyVoice (自动检测版本) ---")
     cosyvoice_results = benchmark_cosyvoice()
     
     # 打印对比结果
-    print_comparison(kokoro_results, cosyvoice_results)
+    if kokoro_results_list:
+        for kokoro_result in kokoro_results_list:
+            print_comparison(kokoro_result, cosyvoice_results)
+    else:
+        print_comparison(None, cosyvoice_results)
 
 if __name__ == "__main__":
     main()
