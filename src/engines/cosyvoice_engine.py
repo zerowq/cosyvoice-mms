@@ -176,6 +176,7 @@ class CosyVoiceEngine:
             import numpy as np
             np.random.seed(self.seed)
 
+        use_ref_audio = False
         try:
             model = self.model
             spk_list = model.list_available_spks()
@@ -185,6 +186,7 @@ class CosyVoiceEngine:
             else:
                 ref_audio_path = self._find_reference_audio(voice)
                 if ref_audio_path:
+                    use_ref_audio = True
                     print(f"🎤 [CosyVoice] Using reference audio: {os.path.basename(ref_audio_path)}")
                     # 只在CosyVoice 3.0中添加语言标记
                     if self._is_v3 and not any(tag in text for tag in ['<|zh|>', '<|en|>', '<|ja|>', '<|yue|>', '<|ko|>']):
@@ -200,9 +202,21 @@ class CosyVoiceEngine:
                     else:
                         raise ValueError(f"No voices available")
 
+            # 流式输出时跳过开头的样本（修复参考音频泄漏问题）
+            trim_samples = int(1.5 * self.sample_rate) if use_ref_audio and self.trim_ref_audio_start else 0
+            samples_skipped = 0
+
             for chunk in iterable:
                 speech = chunk['tts_speech'].numpy().flatten()
-                yield speech.tobytes()
+
+                if samples_skipped < trim_samples:
+                    # 需要跳过的样本数
+                    skip_count = min(len(speech), trim_samples - samples_skipped)
+                    samples_skipped += skip_count
+                    speech = speech[skip_count:]
+
+                if len(speech) > 0:
+                    yield speech.tobytes()
 
         except Exception as e:
             print(f"❌ [CosyVoice] Streaming error: {e}")
