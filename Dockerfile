@@ -1,5 +1,11 @@
-# 使用 CUDA 12.3 + cuDNN 9 基础镜像（支持 onnxruntime-gpu 1.23.2）
-FROM nvidia/cuda:12.3.0-cudnn9-runtime-ubuntu22.04
+# 使用本地已有的 CUDA 12.2 镜像
+FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04
+
+# 安装 cuDNN 9（onnxruntime-gpu 1.23.2 需要）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libcudnn9-cuda-12 \
+    && rm -rf /var/lib/apt/lists/*
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
