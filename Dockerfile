@@ -41,12 +41,12 @@ COPY scripts/download_models.py scripts/
 COPY scripts/create_dummy_voice.py scripts/
 COPY CosyVoice CosyVoice/
 
-# 【关键步骤】在构建镜像时预下载模型 (此时 CI 环境应有网络)
-# 注意：构建完成后，models 目录将被固化在镜像中
-RUN unset MODELSCOPE_OFFLINE && \
-    unset HF_HUB_OFFLINE && \
-    python3 scripts/download_models.py && \
-    python3 scripts/create_dummy_voice.py
+# 【模型下载已禁用】运行时通过 -v 挂载本地模型目录
+# 如需在镜像中包含模型，取消下面注释：
+# RUN unset MODELSCOPE_OFFLINE && \
+#     unset HF_HUB_OFFLINE && \
+#     python3 scripts/download_models.py && \
+#     python3 scripts/create_dummy_voice.py
 
 # 最后复制业务代码（这些经常变，放最后利用缓存）
 COPY src src/
