@@ -1,5 +1,5 @@
-# 使用支持 MPS 的基础镜像是不现实的（MPS 仅限宿主机），生产环境通常是 NVIDIA GPU
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+# 使用 CUDA 12.3 + cuDNN 9 基础镜像（支持 onnxruntime-gpu 1.23.2）
+FROM nvidia/cuda:12.3.0-cudnn9-runtime-ubuntu22.04
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
